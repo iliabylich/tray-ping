@@ -4,7 +4,7 @@
 
 # Releases
 
-You can download .dmg file from the latest release (built on CI).
+You can download .dmg file [from the latest release](https://github.com/iliabylich/tray-ping/releases) (built on CI).
 
 # Built with
 
@@ -13,10 +13,18 @@ You can download .dmg file from the latest release (built on CI).
 
 # Internals
 
-3 threads:
+2 threads:
 
 1. UI thread.
 2. Thread that consecutively runs `ping` and stores results.
-3. Synchronization thread that updates tray menu based on the state of the ping thread.
 
-No cross-thread communication, just a global shared value behind a mutex. 
+# Configuration
+
+There's no dynamic configuration, however [there are a few top-level constants](/src-tauri/src/main.rs) that can be changed:
+
+1. `DEFAULT_HOST` - set to `google.com:443` by default, has be to be in `<host>:<port>` format. Can also be changed at runtime by clicking the first menu item and entering a new `host:port` string. This dynamic value is not persisted anywhere.
+2. `TRAY_HEIGHT` - set to `15`, configures total number of rows that show sliding window of the `ping` output, i.e. by default it shows last 15 lines.
+
+# License
+
+MIT, do whatever you want.

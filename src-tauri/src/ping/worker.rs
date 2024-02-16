@@ -8,12 +8,21 @@ use crate::ping::{
     PingResult,
 };
 
-#[derive(Debug)]
 pub(crate) struct Worker {
     hostname_and_ip_addr: Option<(String, std::net::IpAddr)>,
     icmp_seq: u64,
     results_to_keep: usize,
     last_results: VecDeque<PingResult>,
+    on_tick: Option<Box<dyn Fn(VecDeque<PingResult>) + Send>>,
+}
+
+impl std::fmt::Debug for Worker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Worker")
+            .field("hostname_and_ip_addr", &self.hostname_and_ip_addr)
+            .field("icmp_seq", &self.icmp_seq)
+            .finish()
+    }
 }
 
 static INSTANCE: OnceLock<Mutex<Worker>> = OnceLock::new();
@@ -36,6 +45,7 @@ impl Worker {
             icmp_seq: 0,
             results_to_keep,
             last_results,
+            on_tick: None,
         }
     }
 
@@ -67,14 +77,6 @@ impl Worker {
         }
     }
 
-    pub(crate) fn current_stats() -> VecDeque<PingResult> {
-        worker()
-            .lock()
-            .expect("Worker lock poisoned")
-            .last_results
-            .clone()
-    }
-
     fn tick(&mut self) {
         let result = if let Some((hostname, ip_addr)) = self.hostname_and_ip_addr.as_ref() {
             self.icmp_seq += 1;
@@ -87,6 +89,18 @@ impl Worker {
         if self.last_results.len() > self.results_to_keep {
             self.last_results.pop_front();
         }
+
+        if let Some(f) = self.on_tick.as_ref() {
+            f(self.last_results.clone());
+        }
+    }
+
+    pub(crate) fn subscribe<F>(f: F)
+    where
+        F: Fn(VecDeque<PingResult>) + Send + 'static,
+    {
+        let mut worker = worker().lock().expect("Worker lock poisoned");
+        worker.on_tick = Some(Box::new(f));
     }
 }
 
