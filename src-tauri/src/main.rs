@@ -8,7 +8,7 @@ use tauri::{
 mod ping;
 use ping::{PingResult, Worker};
 
-mod fixed_size_deque;
+mod fixed_size_queue;
 
 const DEFAULT_HOST: &str = "google.com:443";
 

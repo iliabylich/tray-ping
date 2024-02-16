@@ -1,6 +1,6 @@
 use std::net::ToSocketAddrs;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub(crate) struct DnsError;
 
 impl std::fmt::Display for DnsError {

@@ -1,20 +1,18 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use crate::{
-    fixed_size_deque::FixedSizeDeque,
+    fixed_size_queue::FixedSizeQueue,
     ping::{
         dns_lookup::{hostname_to_ip_addr, DnsError},
-        PingResult,
+        PingLine, PingResult,
     },
 };
-
-use super::PingLine;
 
 pub(crate) struct Worker<const N: usize> {
     hostname: String,
     ip_addr: std::net::IpAddr,
     icmp_seq: u64,
-    queue: FixedSizeDeque<N, PingResult>,
+    queue: FixedSizeQueue<N, PingResult>,
     send_pings: Sender<[Option<PingResult>; N]>,
 }
 
@@ -30,7 +28,7 @@ impl<const N: usize> Worker<N> {
             hostname,
             ip_addr,
             icmp_seq: 0,
-            queue: FixedSizeDeque::new(),
+            queue: FixedSizeQueue::new(),
             send_pings,
         };
 
