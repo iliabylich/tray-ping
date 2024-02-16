@@ -6,7 +6,7 @@
   },
   "package": {
     "productName": "tray-ping",
-    "version": "0.0.4"
+    "version": "0.0.5"
   },
   "tauri": {
     "allowlist": {
@@ -16,19 +16,7 @@
         "open": true
       }
     },
-    "windows": [
-      {
-        "label": "change-host-window",
-        "fullscreen": false,
-        "resizable": false,
-        "title": "Change host",
-        "width": 700,
-        "height": 130,
-        "visible": false,
-        "minimizable": false,
-        "maximizable": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     },

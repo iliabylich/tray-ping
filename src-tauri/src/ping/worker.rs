@@ -1,7 +1,4 @@
-use std::{
-    collections::VecDeque,
-    sync::{Mutex, OnceLock},
-};
+use std::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     fixed_size_deque::FixedSizeDeque,
@@ -11,109 +8,50 @@ use crate::{
     },
 };
 
-const QUEUE_SIZE: usize = 15;
+use super::PingLine;
 
-pub(crate) struct Worker {
-    hostname_and_ip_addr: Option<(String, std::net::IpAddr)>,
+pub(crate) struct Worker<const N: usize> {
+    hostname: String,
+    ip_addr: std::net::IpAddr,
     icmp_seq: u64,
-    queue: FixedSizeDeque<QUEUE_SIZE, PingResult>,
-    on_tick: Option<Box<dyn Fn(&VecDeque<Option<PingResult>>) + Send>>,
+    queue: FixedSizeDeque<N, PingResult>,
+    send_pings: Sender<[Option<PingResult>; N]>,
 }
 
-impl std::fmt::Debug for Worker {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Worker")
-            .field("hostname_and_ip_addr", &self.hostname_and_ip_addr)
-            .field("icmp_seq", &self.icmp_seq)
-            .finish()
-    }
-}
+impl<const N: usize> Worker<N> {
+    pub(crate) fn init(hostname: &str) -> Result<Receiver<[Option<PingResult>; N]>, DnsError> {
+        let (send_pings, recv_pings) = std::sync::mpsc::channel();
 
-static INSTANCE: OnceLock<Mutex<Worker>> = OnceLock::new();
+        let hostname = hostname.to_string();
 
-fn worker() -> &'static Mutex<Worker> {
-    INSTANCE
-        .get()
-        .expect("Worker not initialized, Worker::init() must be called first")
-}
+        let ip_addr = hostname_to_ip_addr(&hostname)?;
 
-impl Worker {
-    fn new() -> Self {
-        Self {
-            hostname_and_ip_addr: None,
+        let mut worker = Worker {
+            hostname,
+            ip_addr,
             icmp_seq: 0,
             queue: FixedSizeDeque::new(),
-            on_tick: None,
-        }
-    }
+            send_pings,
+        };
 
-    pub(crate) fn init() {
-        INSTANCE
-            .set(Mutex::new(Self::new()))
-            .expect("Worker already initialized");
-
-        std::thread::spawn(|| loop {
-            {
-                worker().lock().expect("Worker lock poisoned").tick();
-            }
+        std::thread::spawn(move || loop {
+            worker.tick();
             std::thread::sleep(std::time::Duration::from_secs(1));
         });
-    }
 
-    pub(crate) fn set_hostname(hostname: &str) -> Result<(), DnsError> {
-        let mut worker = worker().lock().expect("Worker lock poisoned");
-
-        match hostname_to_ip_addr(hostname) {
-            Ok(ip_addr) => {
-                worker.hostname_and_ip_addr = Some((hostname.to_string(), ip_addr));
-                Ok(())
-            }
-            Err(e) => {
-                worker.hostname_and_ip_addr = None;
-                Err(e)
-            }
-        }
+        Ok(recv_pings)
     }
 
     fn tick(&mut self) {
-        let result = if let Some((hostname, ip_addr)) = self.hostname_and_ip_addr.as_ref() {
-            self.icmp_seq += 1;
-            Some(ping(hostname, *ip_addr, self.icmp_seq))
-        } else {
-            None
-        };
+        self.icmp_seq += 1;
+        self.queue.push(PingLine::new(
+            self.hostname.clone(),
+            self.ip_addr,
+            self.icmp_seq,
+        ));
 
-        self.queue.push(result);
-
-        if let Some(f) = self.on_tick.as_ref() {
-            f(self.queue.get());
-        }
-    }
-
-    pub(crate) fn subscribe<F>(f: F)
-    where
-        F: Fn(&VecDeque<Option<PingResult>>) + Send + 'static,
-    {
-        let mut worker = worker().lock().expect("Worker lock poisoned");
-        worker.on_tick = Some(Box::new(f));
-    }
-}
-
-pub(crate) fn ping(hostname: &str, ip_addr: std::net::IpAddr, icmp_seq: u64) -> PingResult {
-    let ttl = 64;
-    let start = std::time::Instant::now();
-
-    match ping::dgramsock::ping(ip_addr, None, Some(ttl), None, None, None) {
-        Ok(_) => {}
-        Err(e) => return PingResult::Error(e.to_string()),
-    }
-
-    let duration = start.elapsed();
-
-    PingResult::Done {
-        hostname: hostname.to_string(),
-        icmp_seq,
-        ttl,
-        duration,
+        self.send_pings
+            .send(self.queue.get())
+            .expect("Failed to send current ping status");
     }
 }

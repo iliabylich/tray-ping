@@ -1,6 +1,6 @@
 mod dns_lookup;
-mod result;
+mod ping_line;
 mod worker;
 
-pub(crate) use result::PingResult;
+pub(crate) use ping_line::{PingLine, PingResult};
 pub(crate) use worker::Worker;

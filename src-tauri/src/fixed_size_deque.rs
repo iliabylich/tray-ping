@@ -17,12 +17,16 @@ where
         }
     }
 
-    pub(crate) fn push(&mut self, item: Option<T>) {
+    pub(crate) fn push(&mut self, item: T) {
         self.deque.pop_front();
-        self.deque.push_back(item);
+        self.deque.push_back(Some(item));
     }
 
-    pub(crate) fn get(&self) -> &VecDeque<Option<T>> {
-        &self.deque
+    pub(crate) fn get(&self) -> [Option<T>; N] {
+        let mut result: [Option<T>; N] = std::array::from_fn(|_| None);
+        for (i, item) in self.deque.iter().enumerate() {
+            result[i] = item.clone();
+        }
+        result
     }
 }
