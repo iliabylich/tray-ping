@@ -1,0 +1,44 @@
+body {
+  display: flex;
+  justify-content: center;
+  background-color: gray;
+  height: 100px;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+}
+
+input {
+  margin: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 24px;
+  width: 500px;
+  height: 30px;
+}
+
+button {
+  font-size: 24px;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: black;
+  }
+
+  input {
+    color: white;
+    background-color: #333;
+  }
+
+  button {
+    color: white;
+    background-color: #333;
+  }
+}
