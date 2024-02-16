@@ -4,7 +4,19 @@
 
 # Releases
 
-You can download .dmg file [from the latest release](https://github.com/iliabylich/tray-ping/releases) (built on CI).
+You can download .dmg file [from the latest release](https://github.com/iliabylich/tray-ping/releases) (built on CI). If you need a build for a platform other that Mac feel free to create an issue. The code is cross-platform, so it should be trivial to get a build for linux/windows.
+
+# Code signing
+
+Of course the dmg file is not signed and Mac OS can put the app in the quarantine.
+
+```sh
+$ xattr /Applications/tray-ping.app/Contents/MacOS/tray-ping
+com.apple.quarantine
+# Then
+$ xattr -cr /Applications/tray-ping.app/Contents/MacOS/tray-ping
+# and try running again
+```
 
 # Built with
 
