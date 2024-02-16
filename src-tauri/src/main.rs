@@ -1,6 +1,6 @@
 use tauri::{
-    App, AppHandle, CustomMenuItem, Manager, RunEvent, SystemTray, SystemTrayEvent, SystemTrayMenu,
-    SystemTrayMenuItem,
+    ActivationPolicy, App, AppHandle, CustomMenuItem, Manager, RunEvent, SystemTray,
+    SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
 };
 
 mod ping;
@@ -96,7 +96,7 @@ fn main() {
     Worker::init(TRAY_HEIGHT);
     Worker::set_hostname("google.com:443").expect("failed to set initial hostname");
 
-    tauri::Builder::default()
+    let mut app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![change_host])
         .setup(|app| {
             init_tray(app)?;
@@ -104,10 +104,13 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|_app_handle, event| {
-            if let RunEvent::ExitRequested { api, .. } = event {
-                api.prevent_exit();
-            }
-        })
+        .expect("error while building tauri application");
+
+    app.set_activation_policy(ActivationPolicy::Accessory);
+
+    app.run(|_app_handle, event| {
+        if let RunEvent::ExitRequested { api, .. } = event {
+            api.prevent_exit();
+        }
+    })
 }
