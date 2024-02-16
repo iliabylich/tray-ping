@@ -6,6 +6,8 @@ use tauri::{
 mod ping;
 use ping::Worker;
 
+mod fixed_size_deque;
+
 const DEFAULT_HOST: &str = "google.com:443";
 
 fn display_host(host: &str) -> String {
@@ -84,16 +86,22 @@ fn subscribe_to_ping_worker(app: &mut App) {
     let tray_handle = app.tray_handle();
     Worker::subscribe(move |lines| {
         for (i, line) in lines.iter().enumerate() {
+            let id = format!("line{}", i);
+            let title = match line {
+                Some(result) => result.to_string(),
+                None => "---".to_string(),
+            };
+
             tray_handle
-                .get_item(&format!("line{}", i))
-                .set_title(format!("{}", line))
+                .get_item(&id)
+                .set_title(title)
                 .expect("failed to show ping status");
         }
     });
 }
 
 fn main() {
-    Worker::init(TRAY_HEIGHT);
+    Worker::init();
     Worker::set_hostname("google.com:443").expect("failed to set initial hostname");
 
     let mut app = tauri::Builder::default()

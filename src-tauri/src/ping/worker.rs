@@ -3,17 +3,21 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::ping::{
-    dns_lookup::{hostname_to_ip_addr, DnsError},
-    PingResult,
+use crate::{
+    fixed_size_deque::FixedSizeDeque,
+    ping::{
+        dns_lookup::{hostname_to_ip_addr, DnsError},
+        PingResult,
+    },
 };
+
+const QUEUE_SIZE: usize = 15;
 
 pub(crate) struct Worker {
     hostname_and_ip_addr: Option<(String, std::net::IpAddr)>,
     icmp_seq: u64,
-    results_to_keep: usize,
-    last_results: VecDeque<PingResult>,
-    on_tick: Option<Box<dyn Fn(VecDeque<PingResult>) + Send>>,
+    queue: FixedSizeDeque<QUEUE_SIZE, PingResult>,
+    on_tick: Option<Box<dyn Fn(&VecDeque<Option<PingResult>>) + Send>>,
 }
 
 impl std::fmt::Debug for Worker {
@@ -34,24 +38,18 @@ fn worker() -> &'static Mutex<Worker> {
 }
 
 impl Worker {
-    fn new(results_to_keep: usize) -> Self {
-        let mut last_results = VecDeque::new();
-        for _ in 0..results_to_keep {
-            last_results.push_back(PingResult::NotConfigured);
-        }
-
+    fn new() -> Self {
         Self {
             hostname_and_ip_addr: None,
             icmp_seq: 0,
-            results_to_keep,
-            last_results,
+            queue: FixedSizeDeque::new(),
             on_tick: None,
         }
     }
 
-    pub(crate) fn init(results_to_keep: usize) {
+    pub(crate) fn init() {
         INSTANCE
-            .set(Mutex::new(Self::new(results_to_keep)))
+            .set(Mutex::new(Self::new()))
             .expect("Worker already initialized");
 
         std::thread::spawn(|| loop {
@@ -80,24 +78,21 @@ impl Worker {
     fn tick(&mut self) {
         let result = if let Some((hostname, ip_addr)) = self.hostname_and_ip_addr.as_ref() {
             self.icmp_seq += 1;
-            ping(hostname, *ip_addr, self.icmp_seq)
+            Some(ping(hostname, *ip_addr, self.icmp_seq))
         } else {
-            PingResult::NotConfigured
+            None
         };
 
-        self.last_results.push_back(result);
-        if self.last_results.len() > self.results_to_keep {
-            self.last_results.pop_front();
-        }
+        self.queue.push(result);
 
         if let Some(f) = self.on_tick.as_ref() {
-            f(self.last_results.clone());
+            f(self.queue.get());
         }
     }
 
     pub(crate) fn subscribe<F>(f: F)
     where
-        F: Fn(VecDeque<PingResult>) + Send + 'static,
+        F: Fn(&VecDeque<Option<PingResult>>) + Send + 'static,
     {
         let mut worker = worker().lock().expect("Worker lock poisoned");
         worker.on_tick = Some(Box::new(f));

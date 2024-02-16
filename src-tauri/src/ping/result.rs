@@ -7,7 +7,6 @@ pub(crate) enum PingResult {
         duration: std::time::Duration,
     },
     Error(String),
-    NotConfigured,
 }
 
 impl std::fmt::Display for PingResult {
@@ -31,7 +30,6 @@ impl std::fmt::Display for PingResult {
             Self::Error(e) => {
                 write!(f, "Error: {}", e)
             }
-            Self::NotConfigured => f.write_str("Not configured"),
         }
     }
 }
